@@ -1,0 +1,122 @@
+zabbix_export:
+  version: '6.0'
+  date: '2022-02-21T12:03:22Z'
+  groups:
+    -
+      uuid: a571c0d144b14fd4a87a9d9b2aa9fcd6
+      name: Templates/Applications
+  templates:
+    -
+      uuid: d15f44afdd5c4f868cc01cfd63ee7680
+      template: 'SSL certificates expiry'
+      name: 'SSL certificates expiry'
+      description: 'Template for monitoring SSL certs expiry by Zabbix agent 2. The list of sites is in the file /opt/zabbix/sites.json on the host.'
+      groups:
+        -
+          name: Templates/Applications
+      discovery_rules:
+        -
+          uuid: 629ad07533c541e1b72c5f51cac55b3e
+          name: 'SSL cert'
+          key: list.sites
+          lifetime: 1d
+          item_prototypes:
+            -
+              uuid: a05a2464f80649e4aff8f9a1dec17dcf
+              name: 'Expires date {#SITE}'
+              type: DEPENDENT
+              key: 'cert.expiry.date[{#SITE}]'
+              delay: '0'
+              history: 7d
+              trends: 30d
+              units: unixtime
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - $.x509.not_after.timestamp
+              master_item:
+                key: 'web.certificate.get[{#SITE},{$SITE.PORT}]'
+              tags:
+                -
+                  tag: Application
+                  value: SSL
+            -
+              uuid: 84b2adeba5e84c15bcc6493a04c025da
+              name: 'Expiry days {#SITE}'
+              type: CALCULATED
+              key: 'cert.expiry.days[{#SITE}]'
+              delay: 1h
+              history: 7d
+              trends: 30d
+              params: '(last(//cert.expiry.date[{#SITE}]) - now()) / 86400'
+              tags:
+                -
+                  tag: Application
+                  value: SSL
+              trigger_prototypes:
+                -
+                  uuid: f1267a12a9db4d4486e511f5c2eec7eb
+                  expression: 'nodata(/SSL certificates expiry/cert.expiry.days[{#SITE}],{$NODATA.TIMEOUT})=1'
+                  name: 'NoData SSL certificate {#SITE} during {$NODATA.TIMEOUT}'
+                  priority: HIGH
+                  description: 'No data during >= {$NODATA.TIMEOUT}'
+                -
+                  uuid: 84d24563a4e548b3bf00abae0112754b
+                  expression: 'last(/SSL certificates expiry/cert.expiry.days[{#SITE}])< {$EXPIRY.CRIT}'
+                  name: 'SSL certificate {#SITE} expiry days < {$EXPIRY.CRIT}'
+                  priority: HIGH
+                -
+                  uuid: 4bdb3e74cc614ca99ab4a763f9d311d0
+                  expression: 'last(/SSL certificates expiry/cert.expiry.days[{#SITE}])< {$EXPIRY.WARN}'
+                  name: 'SSL certificate {#SITE} expiry days < {$EXPIRY.WARN}'
+                  priority: WARNING
+                  dependencies:
+                    -
+                      name: 'SSL certificate {#SITE} expiry days < {$EXPIRY.CRIT}'
+                      expression: 'last(/SSL certificates expiry/cert.expiry.days[{#SITE}])< {$EXPIRY.CRIT}'
+            -
+              uuid: d4faf1e00f32482e952233f504b6764a
+              name: 'Certificate {#SITE}'
+              key: 'web.certificate.get[{#SITE},{$SITE.PORT}]'
+              delay: 1h
+              history: '0'
+              trends: '0'
+              value_type: TEXT
+              tags:
+                -
+                  tag: Application
+                  value: SSL
+          graph_prototypes:
+            -
+              uuid: 164ad621bd4e4d6492307b851959e085
+              name: 'SSL certificates expiry days'
+              show_work_period: 'NO'
+              show_triggers: 'NO'
+              graph_items:
+                -
+                  color: 199C0D
+                  item:
+                    host: 'SSL certificates expiry'
+                    key: 'cert.expiry.days[{#SITE}]'
+      tags:
+        -
+          tag: Application
+          value: SSL
+      macros:
+        -
+          macro: '{$EXPIRY.CRIT}'
+          value: '7'
+          description: 'Number of days until the certificate expires.'
+        -
+          macro: '{$EXPIRY.WARN}'
+          value: '21'
+          description: 'Number of days until the certificate expires.'
+        -
+          macro: '{$NODATA.TIMEOUT}'
+          value: 2h
+          description: 'Data income check timeout.'
+        -
+          macro: '{$SITE.PORT}'
+          value: '443'
+          description: 'The TLS/SSL port number of the website.'

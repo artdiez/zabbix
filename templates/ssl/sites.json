@@ -1,0 +1,7 @@
+[
+    {"{#SITE}":"foo.bar"},
+    {"{#SITE}":"another.foo.bar"},
+    {"{#SITE}":"another.site.org"},
+    {"{#SITE}":"test.domain.com"},
+    {"{#SITE}":"foo2.bar"}
+]
